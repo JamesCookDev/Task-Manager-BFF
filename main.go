@@ -4,16 +4,20 @@ import (
 	"log"
 	"net/http"
 	"io"
-
+	"os"
 	"github.com/go-chi/chi/v5"
 )
 
-const djangoAPI = "http://localhost:8000/api/v1/projects/"
-
-const apiToken = ""
-
-
 func getProjetosHandler(w http.ResponseWriter, r *http.Request) {
+	djangoAPI := os.Getenv("DJANGO_API")
+	apiToken := os.Getenv("API_TOKEN")
+
+	if djangoAPI == "" || apiToken == "" {
+		log.Fatal("Error: Variaveis de ambiente DJANGO_API e API_TOKEN não configuradas")
+		http.Error(w, "Erro de configuração interna do servidor", http.StatusInternalServerError)
+		return
+	}
+
 	req, err := http.NewRequest("GET", djangoAPI, nil)
 	if err != nil {
 		http.Error(w, "Erro ao criar requisição para a API interna", http.StatusInternalServerError)
