@@ -1,34 +1,45 @@
 package clients
 
 import (
-	"io"
-	"net/http"
+	"context"
+	"log"
 	"os"
+	"time"
+
+	pb "task-manager-bff/proto" 
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
-func GetProjetos() ([]byte, int, error) {
-	djangoAPI := os.Getenv("DJANGO_API_URL")
-	apiToken := os.Getenv("API_TOKEN")
-
-	req, err := http.NewRequest("GET", djangoAPI, nil)
-	if err != nil {
-		return nil, 0, err
+// GetProjetos agora retorna uma mensagem Protobuf em vez de bytes
+func GetProjetos() (*pb.ListarProjetosResponse, error) {
+	// Pega o endereço do servidor gRPC do ambiente
+	djangoGrpcUrl := os.Getenv("DJANGO_GRPC_URL")
+	if djangoGrpcUrl == "" {
+		log.Fatal("Variável de ambiente DJANGO_GRPC_URL não definida")
 	}
 
-	req.Header.Add("Authorization", "Bearer "+apiToken)
-	req.Header.Add("Accept", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	// Estabelece uma conexão com o servidor gRPC.
+	// `insecure` é usado para desenvolvimento; em produção, usaríamos TLS.
+	conn, err := grpc.Dial(djangoGrpcUrl, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
-	defer resp.Body.Close()
+	defer conn.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	// Cria um "stub" de cliente a partir da conexão
+	c := pb.NewProjetoServiceClient(conn)
+
+	// Define um timeout para a chamada
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	// Faz a chamada RPC!
+	res, err := c.ListarProjetos(ctx, &pb.ListarProjetosRequest{})
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
-	return body, resp.StatusCode, nil
+	return res, nil
 }
